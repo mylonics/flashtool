@@ -1,5 +1,11 @@
+import { exec } from 'child_process';
+import { readdir, readFile } from 'fs/promises';
+import path from 'path';
+import { promisify } from 'util';
 import { SerialPort } from 'serialport';
 import type { ProbeInfo } from '../../src/types';
+
+const execAsync = promisify(exec);
 
 // BMP: Black Magic Probe USB identifiers
 const BMP_VID = '1d50';
@@ -20,7 +26,10 @@ const STLINK_PIDS = new Set([
 
 export class ProbeDetector {
   async detect(): Promise<ProbeInfo[]> {
-    const allPorts = await SerialPort.list();
+    const [allPorts, usbStlinks] = await Promise.all([
+      SerialPort.list(),
+      this.detectStlinkViaUsb(),
+    ]);
     const probes: ProbeInfo[] = [];
 
     // ── BMP detection ──────────────────────────────────────────────────────────
@@ -72,18 +81,145 @@ export class ProbeDetector {
       if (!stlinkBySn.has(sn)) stlinkBySn.set(sn, port);
     }
 
+    const stlinkSnSeen = new Set<string>();
     for (const [sn, port] of stlinkBySn) {
       const pid = (port.productId ?? '').toLowerCase();
       const version = this.stlinkVersion(pid);
+      const serialNumber = sn !== port.path ? sn : undefined;
+      if (serialNumber) stlinkSnSeen.add(serialNumber);
       probes.push({
         path: port.path,
         type: 'stlink',
         name: `ST-Link ${version} (${port.path})`,
-        serialNumber: sn !== port.path ? sn : undefined,
+        serialNumber,
         manufacturer: port.manufacturer ?? 'STMicroelectronics',
       });
     }
 
+    // Add USB-detected STLink probes not already found via VCP serial port
+    for (const usbProbe of usbStlinks) {
+      if (usbProbe.serialNumber && stlinkSnSeen.has(usbProbe.serialNumber)) continue;
+      probes.push(usbProbe);
+    }
+
+    return probes;
+  }
+
+  /**
+   * Detect STLink probes at the USB level (no VCP required).
+   * STLink v2 (PID 374b) has no virtual COM port, so SerialPort.list() misses it.
+   */
+  private async detectStlinkViaUsb(): Promise<ProbeInfo[]> {
+    try {
+      switch (process.platform) {
+        case 'win32': return await this.detectStlinkWindows();
+        case 'linux': return await this.detectStlinkLinux();
+        case 'darwin': return await this.detectStlinkMac();
+        default: return [];
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  private async detectStlinkWindows(): Promise<ProbeInfo[]> {
+    const { stdout } = await execAsync(
+      'powershell -NoProfile -Command "Get-PnpDevice -PresentOnly | ' +
+        "Where-Object InstanceId -like '*VID_0483*' | " +
+        "Where-Object Status -eq 'OK' | " +
+        'Select-Object FriendlyName, InstanceId | ConvertTo-Json -Compress"',
+    );
+    const trimmed = stdout.trim();
+    if (!trimmed || trimmed === 'null') return [];
+
+    type WinDev = { FriendlyName: string; InstanceId: string };
+    const raw = JSON.parse(trimmed) as WinDev | WinDev[];
+    const devices: WinDev[] = Array.isArray(raw) ? raw : [raw];
+
+    const bySn = new Map<string, ProbeInfo>();
+    for (const dev of devices) {
+      // InstanceId: USB\VID_0483&PID_374B\5A002900...
+      const m = /PID_([0-9A-Fa-f]+)\\(.+)$/i.exec(dev.InstanceId);
+      if (!m) continue;
+      const pid = (m[1] ?? '').toLowerCase();
+      const sn = m[2] ?? '';
+      if (!STLINK_PIDS.has(pid) || bySn.has(sn)) continue;
+      const version = this.stlinkVersion(pid);
+      bySn.set(sn, {
+        path: sn,
+        type: 'stlink',
+        name: `ST-Link ${version} (${sn})`,
+        serialNumber: sn || undefined,
+        manufacturer: 'STMicroelectronics',
+      });
+    }
+    return [...bySn.values()];
+  }
+
+  private async detectStlinkLinux(): Promise<ProbeInfo[]> {
+    const sysPath = '/sys/bus/usb/devices';
+    const dirs = await readdir(sysPath);
+    const bySn = new Map<string, ProbeInfo>();
+
+    await Promise.all(
+      dirs.map(async (dir) => {
+        const base = path.join(sysPath, dir);
+        try {
+          const [vid, pid] = await Promise.all([
+            readFile(path.join(base, 'idVendor'), 'utf8').then((s) => s.trim()),
+            readFile(path.join(base, 'idProduct'), 'utf8').then((s) => s.trim()),
+          ]);
+          if (vid !== '0483' || !STLINK_PIDS.has(pid)) return;
+          const serial = await readFile(path.join(base, 'serial'), 'utf8')
+            .then((s) => s.trim())
+            .catch(() => dir);
+          if (bySn.has(serial)) return;
+          const version = this.stlinkVersion(pid);
+          bySn.set(serial, {
+            path: serial,
+            type: 'stlink',
+            name: `ST-Link ${version} (${serial})`,
+            serialNumber: serial !== dir ? serial : undefined,
+            manufacturer: 'STMicroelectronics',
+          });
+        } catch { /* not a USB device dir */ }
+      }),
+    );
+    return [...bySn.values()];
+  }
+
+  private async detectStlinkMac(): Promise<ProbeInfo[]> {
+    const { stdout } = await execAsync('system_profiler SPUSBDataType -json');
+    interface SpUsbDevice {
+      _name: string;
+      vendor_id?: string;
+      product_id?: string;
+      serial_num?: string;
+      manufacturer?: string;
+      _items?: SpUsbDevice[];
+    }
+    const data = JSON.parse(stdout) as { SPUSBDataType: SpUsbDevice[] };
+    const probes: ProbeInfo[] = [];
+
+    const walk = (devices: SpUsbDevice[]) => {
+      for (const dev of devices) {
+        const vid = (dev.vendor_id ?? '').toLowerCase().replace('0x', '').padStart(4, '0');
+        const pid = (dev.product_id ?? '').toLowerCase().replace('0x', '').padStart(4, '0');
+        if (vid === '0483' && STLINK_PIDS.has(pid)) {
+          const serial = dev.serial_num ?? '';
+          const version = this.stlinkVersion(pid);
+          probes.push({
+            path: serial || dev._name,
+            type: 'stlink',
+            name: `ST-Link ${version} (${serial || dev._name})`,
+            serialNumber: serial || undefined,
+            manufacturer: dev.manufacturer ?? 'STMicroelectronics',
+          });
+        }
+        if (dev._items) walk(dev._items);
+      }
+    };
+    walk(data.SPUSBDataType ?? []);
     return probes;
   }
 

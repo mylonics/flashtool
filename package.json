@@ -10,7 +10,9 @@
     "format": "prettier --write \"**/*.{js,ts,vue,scss,html,json}\"",
     "dev": "quasar dev -m electron",
     "build": "quasar build -m electron",
-    "test": "vitest run"
+    "test": "vitest run",
+    "tools:download": "node scripts/download-tools.js",
+    "tools:download:all": "node scripts/download-tools.js --all"
   },
   "dependencies": {
     "@quasar/extras": "^1.16.4",

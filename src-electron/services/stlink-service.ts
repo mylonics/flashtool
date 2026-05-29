@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import type { FlashConfig, ProbeInfo } from '../../src/types';
 import type { LogFn, RttDataFn, StatusFn } from './openocd-service';
 import { OpenOcdService } from './openocd-service';
+import { ToolResolver } from './tool-resolver';
 
 /**
  * STLink flash + RTT service.
@@ -31,18 +32,19 @@ export class StlinkService {
     return this.flashWithStFlash(config, log, status);
   }
 
-  private flashWithStFlash(
+  private async flashWithStFlash(
     config: FlashConfig,
     log: LogFn,
     status: StatusFn,
   ): Promise<void> {
     const ext = config.firmwarePath.split('.').pop()?.toLowerCase() ?? '';
     const args = this.buildStFlashArgs(config.firmwarePath, ext);
+    const stFlashBin = await ToolResolver.stFlash();
 
     log(`[st-flash] Running: st-flash ${args.join(' ')}`);
 
     return new Promise((resolve, reject) => {
-      this.flashProc = spawn('st-flash', args, { stdio: 'pipe' });
+      this.flashProc = spawn(stFlashBin, args, { stdio: 'pipe' });
 
       const onData = (data: Buffer) => {
         data.toString().split('\n').forEach((l) => l && log(l));

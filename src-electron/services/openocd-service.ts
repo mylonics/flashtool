@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'child_process';
 import { createConnection, type Socket } from 'net';
 import type { FlashConfig, ProbeInfo } from '../../src/types';
+import { ToolResolver } from './tool-resolver';
 
 export type LogFn = (line: string) => void;
 export type StatusFn = (status: string, error?: string) => void;
@@ -38,7 +39,14 @@ export class OpenOcdService {
       (probe.type === 'bmp' ? 'interface/cmsis-dap.cfg' : 'interface/stlink.cfg');
     const targetCfg = config.openocdTarget ?? 'board/nrf52840dk_nrf52840.cfg';
 
+    const [openocdBin, scriptsDir] = await Promise.all([
+      ToolResolver.openocd(),
+      ToolResolver.openocdScriptsDir(),
+    ]);
+    const scriptsArg = scriptsDir ? ['-s', scriptsDir] : [];
+
     const args = [
+      ...scriptsArg,
       '-f', interfaceCfg,
       '-f', targetCfg,
       '-c', `program ${config.firmwarePath} verify reset exit`,
@@ -47,7 +55,7 @@ export class OpenOcdService {
     log(`[openocd] Running: openocd ${args.join(' ')}`);
 
     return new Promise((resolve, reject) => {
-      this.flashProc = spawn('openocd', args, { stdio: 'pipe' });
+      this.flashProc = spawn(openocdBin, args, { stdio: 'pipe' });
 
       const onData = (data: Buffer) => {
         data.toString().split('\n').forEach((l) => l && log(l));
@@ -96,7 +104,14 @@ export class OpenOcdService {
       ? `rtt setup ${config.rttAddress} 0x10 "SEGGER RTT"`
       : 'rtt setup auto';
 
+    const [openocdBin, scriptsDir] = await Promise.all([
+      ToolResolver.openocd(),
+      ToolResolver.openocdScriptsDir(),
+    ]);
+    const scriptsArg = scriptsDir ? ['-s', scriptsDir] : [];
+
     const args = [
+      ...scriptsArg,
       '-f', interfaceCfg,
       '-f', targetCfg,
       '-c', `rtt server start ${this.rttPort} 0`,
@@ -106,7 +121,7 @@ export class OpenOcdService {
     onData(`[openocd] Starting RTT server on port ${this.rttPort}…`, 'info');
 
     await new Promise<void>((resolve, reject) => {
-      this.rttProc = spawn('openocd', args, { stdio: 'pipe' });
+      this.rttProc = spawn(openocdBin, args, { stdio: 'pipe' });
 
       const ready = /rtt server started/i;
       let resolved = false;

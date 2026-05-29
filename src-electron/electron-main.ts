@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { SessionManager } from './services/session-manager';
@@ -15,6 +15,8 @@ const sessionManager = new SessionManager();
 const probeDetector = new ProbeDetector();
 
 function createWindow() {
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -25,7 +27,13 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      preload: path.resolve(__dirname, process.env.QUASAR_ELECTRON_PRELOAD ?? ''),
+      preload: path.resolve(
+        __dirname,
+        path.join(
+          process.env.QUASAR_ELECTRON_PRELOAD_FOLDER ?? 'preload',
+          'electron-preload' + (process.env.QUASAR_ELECTRON_PRELOAD_EXTENSION ?? '.cjs'),
+        ),
+      ),
     },
   });
 

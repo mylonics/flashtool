@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import { SerialPort } from 'serialport';
 import type { FlashConfig, ProbeInfo } from '../../src/types';
 import type { LogFn, RttDataFn, StatusFn } from './openocd-service';
+import { ToolResolver } from './tool-resolver';
 
 interface GdbMiToken {
   id: number;
@@ -34,7 +35,7 @@ export class BmpService {
     log: LogFn,
     status: StatusFn,
   ): Promise<void> {
-    const gdbPath = config.gdbPath ?? 'arm-none-eabi-gdb';
+    const gdbPath = config.gdbPath ?? await ToolResolver.gdb();
     const gdbPort = probe.gdbPort ?? probe.path;
     const targetId = config.targetId ?? 1;
     const scanCmd =
@@ -121,7 +122,7 @@ export class BmpService {
     onData: RttDataFn,
     status: StatusFn,
   ): Promise<void> {
-    const gdbPath = config.gdbPath ?? 'arm-none-eabi-gdb';
+    const gdbPath = config.gdbPath ?? await ToolResolver.gdb();
     const gdbPort = probe.gdbPort ?? probe.path;
     const uartPort = probe.uartPort;
 

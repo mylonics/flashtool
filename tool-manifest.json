@@ -1,0 +1,168 @@
+{
+  "comment": "Pinned tool versions and download URLs. Run 'npm run tools:download' to populate resources/tools/.",
+  "tools": {
+    "gdb": {
+      "comment": "arm-none-eabi-gdb from mylonics/embedded-build-tools (xPack GCC under the hood)",
+      "version": "v2026.03.31",
+      "platforms": {
+        "win32-x64": {
+          "url": "https://github.com/mylonics/embedded-build-tools/releases/download/v2026.03.31/embedded-build-tools-win32-x64.zip",
+          "type": "zip",
+          "extract": [
+            {
+              "src": "tools/arm-none-eabi-gcc/bin/arm-none-eabi-gdb.exe",
+              "dest": "arm-none-eabi-gdb.exe"
+            }
+          ]
+        },
+        "linux-x64": {
+          "url": "https://github.com/mylonics/embedded-build-tools/releases/download/v2026.03.31/embedded-build-tools-linux-x64.tar.gz",
+          "type": "tgz",
+          "extract": [
+            {
+              "src": "tools/arm-none-eabi-gcc/bin/arm-none-eabi-gdb",
+              "dest": "arm-none-eabi-gdb"
+            }
+          ]
+        },
+        "linux-arm64": {
+          "url": "https://github.com/mylonics/embedded-build-tools/releases/download/v2026.03.31/embedded-build-tools-linux-arm64.tar.gz",
+          "type": "tgz",
+          "extract": [
+            {
+              "src": "tools/arm-none-eabi-gcc/bin/arm-none-eabi-gdb",
+              "dest": "arm-none-eabi-gdb"
+            }
+          ]
+        },
+        "darwin-x64": {
+          "url": "https://github.com/mylonics/embedded-build-tools/releases/download/v2026.03.31/embedded-build-tools-darwin-x64.tar.gz",
+          "type": "tgz",
+          "extract": [
+            {
+              "src": "tools/arm-none-eabi-gcc/bin/arm-none-eabi-gdb",
+              "dest": "arm-none-eabi-gdb"
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "url": "https://github.com/mylonics/embedded-build-tools/releases/download/v2026.03.31/embedded-build-tools-darwin-arm64.tar.gz",
+          "type": "tgz",
+          "extract": [
+            {
+              "src": "tools/arm-none-eabi-gcc/bin/arm-none-eabi-gdb",
+              "dest": "arm-none-eabi-gdb"
+            }
+          ]
+        }
+      }
+    },
+    "openocd": {
+      "comment": "OpenOCD from zephyrproject-rtos/openocd — distributed as xPack binaries via the Zephyr SDK",
+      "version": "v0.12.0-4",
+      "platforms": {
+        "win32-x64": {
+          "url": "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-4/xpack-openocd-0.12.0-4-win32-x64.zip",
+          "type": "zip",
+          "extract": [
+            {
+              "src": "xpack-openocd-0.12.0-4/bin/openocd.exe",
+              "dest": "openocd.exe"
+            },
+            {
+              "src": "xpack-openocd-0.12.0-4/openocd/scripts",
+              "dest": "openocd-scripts",
+              "isDir": true
+            }
+          ]
+        },
+        "linux-x64": {
+          "url": "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-4/xpack-openocd-0.12.0-4-linux-x64.tar.gz",
+          "type": "tgz",
+          "extract": [
+            {
+              "src": "xpack-openocd-0.12.0-4/bin/openocd",
+              "dest": "openocd"
+            },
+            {
+              "src": "xpack-openocd-0.12.0-4/openocd/scripts",
+              "dest": "openocd-scripts",
+              "isDir": true
+            }
+          ]
+        },
+        "linux-arm64": {
+          "url": "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-4/xpack-openocd-0.12.0-4-linux-arm64.tar.gz",
+          "type": "tgz",
+          "extract": [
+            {
+              "src": "xpack-openocd-0.12.0-4/bin/openocd",
+              "dest": "openocd"
+            },
+            {
+              "src": "xpack-openocd-0.12.0-4/openocd/scripts",
+              "dest": "openocd-scripts",
+              "isDir": true
+            }
+          ]
+        },
+        "darwin-x64": {
+          "url": "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-4/xpack-openocd-0.12.0-4-darwin-x64.tar.gz",
+          "type": "tgz",
+          "extract": [
+            {
+              "src": "xpack-openocd-0.12.0-4/bin/openocd",
+              "dest": "openocd"
+            },
+            {
+              "src": "xpack-openocd-0.12.0-4/openocd/scripts",
+              "dest": "openocd-scripts",
+              "isDir": true
+            }
+          ]
+        },
+        "darwin-arm64": {
+          "url": "https://github.com/xpack-dev-tools/openocd-xpack/releases/download/v0.12.0-4/xpack-openocd-0.12.0-4-darwin-arm64.tar.gz",
+          "type": "tgz",
+          "extract": [
+            {
+              "src": "xpack-openocd-0.12.0-4/bin/openocd",
+              "dest": "openocd"
+            },
+            {
+              "src": "xpack-openocd-0.12.0-4/openocd/scripts",
+              "dest": "openocd-scripts",
+              "isDir": true
+            }
+          ]
+        }
+      }
+    },
+    "stlink": {
+      "comment": "stlink-org/stlink — provides st-flash and st-info. macOS dropped in v1.8.0; Linux has no official prebuilt so falls back to PATH.",
+      "version": "v1.8.0",
+      "platforms": {
+        "win32-x64": {
+          "url": "https://github.com/stlink-org/stlink/releases/download/v1.8.0/stlink-1.8.0-x86_64-w64-mingw32.zip",
+          "type": "zip",
+          "extract": [
+            {
+              "src": "bin/st-flash.exe",
+              "dest": "st-flash.exe"
+            },
+            {
+              "src": "bin/st-info.exe",
+              "dest": "st-info.exe"
+            },
+            {
+              "src": "bin",
+              "dest": ".",
+              "glob": "*.dll",
+              "isGlob": true
+            }
+          ]
+        }
+      }
+    }
+  }
+}

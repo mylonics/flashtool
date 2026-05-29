@@ -36,7 +36,9 @@ export default configure(function (/* ctx */) {
       preloadScripts: ['electron-preload'],
       inspectPort: 5858,
       bundler: 'packager',
-      packager: {},
+      packager: {
+        extraResource: ['resources/tools'],
+      },
       builder: {
         appId: 'com.mylonics.flashtool',
       },

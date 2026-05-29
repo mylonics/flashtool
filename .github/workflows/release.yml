@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Allow creating releases and uploading artifacts
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win32-x64
+            archive_ext: zip
+          - os: ubuntu-latest
+            platform: linux-x64
+            archive_ext: tar.gz
+          - os: macos-13
+            platform: darwin-x64
+            archive_ext: tar.gz
+          - os: macos-latest   # macos-14+ = Apple Silicon
+            platform: darwin-arm64
+            archive_ext: tar.gz
+
+    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Linux needs libusb for serialport native addon
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libusb-1.0-0-dev libudev-dev
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # Download and extract the bundled tools into resources/tools/<platform>/
+      # The tools:download script reads tool-manifest.json and defaults to the
+      # current runner platform, so no --platform flag is needed here.
+      - name: Download tools for ${{ matrix.platform }}
+        run: node scripts/download-tools.js
+
+      # Sanity check: ensure tools directory was populated
+      - name: Verify tools directory
+        shell: bash
+        run: |
+          if [ ! -d "resources/tools/${{ matrix.platform }}" ]; then
+            echo "ERROR: resources/tools/${{ matrix.platform }} was not created"
+            exit 1
+          fi
+          echo "Tools directory contents:"
+          ls -la "resources/tools/${{ matrix.platform }}"
+
+      - name: Build Electron app
+        run: npx quasar build -m electron
+
+      # ── Archive the packager output ─────────────────────────────────────────
+      # @electron/packager emits a single directory under dist/electron/Packaged/
+      # named "<productName>-<platform>-<arch>/" (e.g. "Flash Tool-win32-x64/").
+
+      - name: Create zip archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pkg = Get-ChildItem "dist/electron/Packaged" -Directory | Select-Object -First 1
+          if (-not $pkg) { Write-Error "No packager output found"; exit 1 }
+          Compress-Archive -Path $pkg.FullName -DestinationPath "flashtool-${{ matrix.platform }}.zip"
+          Write-Output "Created flashtool-${{ matrix.platform }}.zip ($('{0:N1}' -f ((Get-Item 'flashtool-${{ matrix.platform }}.zip').Length / 1MB)) MB)"
+
+      - name: Create tar archive (macOS / Linux)
+        if: runner.os != 'Windows'
+        run: |
+          pkg=$(ls -d dist/electron/Packaged/*/ 2>/dev/null | head -1)
+          if [ -z "$pkg" ]; then echo "No packager output found"; exit 1; fi
+          tar -czf "flashtool-${{ matrix.platform }}.tar.gz" -C "dist/electron/Packaged" "$(basename "$pkg")"
+          size=$(du -sh "flashtool-${{ matrix.platform }}.tar.gz" | cut -f1)
+          echo "Created flashtool-${{ matrix.platform }}.tar.gz ($size)"
+
+      # ── Upload to GitHub Release ────────────────────────────────────────────
+      # The release is created automatically from the tag if it doesn't exist.
+      - name: Upload release artifact
+        uses: softprops/action-gh-release@v2
+        with:
+          files: flashtool-${{ matrix.platform }}.${{ matrix.archive_ext }}
+          generate_release_notes: true
