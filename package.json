@@ -1,0 +1,45 @@
+{
+  "name": "flashtool",
+  "version": "0.1.0",
+  "description": "Flash Tool for BMP, STLink, and OpenOCD",
+  "productName": "Flash Tool",
+  "author": "Mylonics",
+  "private": true,
+  "scripts": {
+    "lint": "eslint --ext .js,.ts,.vue ./src ./src-electron",
+    "format": "prettier --write \"**/*.{js,ts,vue,scss,html,json}\"",
+    "dev": "quasar dev -m electron",
+    "build": "quasar build -m electron",
+    "test": "vitest run",
+    "tools:download": "node scripts/download-tools.js",
+    "tools:download:all": "node scripts/download-tools.js --all"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.4",
+    "pinia": "^2.1.7",
+    "quasar": "^2.16.0",
+    "serialport": "^13.0.0",
+    "uuid": "^11.0.5",
+    "vue": "^3.4.18",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@electron/packager": "^19.1.1",
+    "@quasar/app-vite": "^2.0.0",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "electron": "^34.5.8",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.0.0",
+    "typescript": "^5.7.0",
+    "vite-plugin-checker": "^0.8.0",
+    "vitest": "^2.0.0",
+    "vue-tsc": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

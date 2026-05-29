@@ -1,0 +1,10 @@
+.quasar
+node_modules
+/resources/tools
+/dist
+/src-capacitor
+/src-cordova
+/.quasar
+/quasar.log
+.eslintcache
+*.local

@@ -1,0 +1,43 @@
+// Global app styles
+.rtt-terminal {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 8px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-radius: 4px;
+}
+
+.rtt-terminal .rtt-line {
+  line-height: 1.4;
+}
+
+.rtt-terminal .rtt-line.rtt-error {
+  color: #f44747;
+}
+
+.rtt-terminal .rtt-line.rtt-info {
+  color: #9cdcfe;
+}
+
+.session-tab-panel {
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+}
+
+.flash-log {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  background: #1e1e1e;
+  color: #b5cea8;
+  padding: 8px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-radius: 4px;
+  min-height: 100px;
+}

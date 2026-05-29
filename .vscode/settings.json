@@ -1,0 +1,11 @@
+{
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "zephyr-ide.json",
+        "**/zephyr-ide.json"
+      ],
+      "url": "file:///c%3A/Users/Rijesh/.vscode/extensions/mylonics.zephyr-ide-3.3.3/resources/zephyr-ide-schema.json"
+    }
+  ]
+}
