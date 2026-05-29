@@ -48,11 +48,11 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           ref: ${{ steps.meta.outputs.tag }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
@@ -83,17 +83,20 @@ jobs:
         run: npx quasar build -m electron
 
       # quasar build exits before @electron/packager finishes, so run it explicitly.
+      # Use shell: bash on all platforms so a non-zero exit code always fails the step.
       - name: Package Electron app
-        run: npx electron-packager dist/electron/UnPackaged --out dist/electron/Packaged --overwrite --extra-resource resources/tools
+        shell: bash
+        run: npx electron-packager dist/electron/UnPackaged --out dist/electron/Packaged --overwrite --extra-resource resources/tools --name flashtool
 
       # ── Archive the packager output ─────────────────────────────────────────
       # @electron/packager emits a single directory under dist/electron/Packaged/
-      # named "<productName>-<platform>-<arch>/" (e.g. "Flash Tool-win32-x64/").
+      # named "<name>-<platform>-<arch>/" (e.g. "flashtool-win32-x64/").
 
       - name: Create zip archive (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          if (-not (Test-Path "dist/electron/Packaged")) { Write-Error "Packaged directory not found"; exit 1 }
           $pkg = Get-ChildItem "dist/electron/Packaged" -Directory | Select-Object -First 1
           if (-not $pkg) { Write-Error "No packager output found"; exit 1 }
           Compress-Archive -Path $pkg.FullName -DestinationPath "flashtool-${{ matrix.platform }}.zip"
@@ -102,7 +105,7 @@ jobs:
       - name: Create tar archive (macOS / Linux)
         if: runner.os != 'Windows'
         run: |
-          pkg=$(ls -d dist/electron/Packaged/*/ 2>/dev/null | head -1)
+          pkg=$(find "dist/electron/Packaged" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | head -1)
           if [ -z "$pkg" ]; then echo "No packager output found"; exit 1; fi
           tar -czf "flashtool-${{ matrix.platform }}.tar.gz" -C "dist/electron/Packaged" "$(basename "$pkg")"
           size=$(du -sh "flashtool-${{ matrix.platform }}.tar.gz" | cut -f1)
