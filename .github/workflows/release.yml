@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and release (e.g. v0.1.1)'
+        required: true
 
 # Allow creating releases and uploading artifacts
 permissions:
@@ -32,7 +37,20 @@ jobs:
     name: Build ${{ matrix.platform }}
 
     steps:
+      # Resolve the tag we're building — from the pushed tag or the manual input.
+      - name: Resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
 
       - uses: actions/setup-node@v6
         with:
@@ -48,21 +66,18 @@ jobs:
         run: npm ci
 
       # Download and extract the bundled tools into resources/tools/<platform>/
-      # The tools:download script reads tool-manifest.json and defaults to the
-      # current runner platform, so no --platform flag is needed here.
+      # Defaults to current runner platform — no --platform flag needed.
       - name: Download tools for ${{ matrix.platform }}
         run: node scripts/download-tools.js
 
-      # Sanity check: ensure tools directory was populated
-      - name: Verify tools directory
+      # Ensure the directory always exists so @electron/packager doesn't error
+      # even if a particular tool has no prebuilt for this platform.
+      - name: Ensure tools directory exists
         shell: bash
         run: |
-          if [ ! -d "resources/tools/${{ matrix.platform }}" ]; then
-            echo "ERROR: resources/tools/${{ matrix.platform }} was not created"
-            exit 1
-          fi
+          mkdir -p "resources/tools/${{ matrix.platform }}"
           echo "Tools directory contents:"
-          ls -la "resources/tools/${{ matrix.platform }}"
+          ls -la "resources/tools/${{ matrix.platform }}" || true
 
       - name: Build Electron app
         run: npx quasar build -m electron
@@ -90,11 +105,11 @@ jobs:
           echo "Created flashtool-${{ matrix.platform }}.tar.gz ($size)"
 
       # ── Upload to GitHub Release ────────────────────────────────────────────
-      # The release is created automatically from the tag if it doesn't exist.
       - name: Upload release artifact
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_GITHUB }}
         with:
+          tag_name: ${{ steps.meta.outputs.tag }}
           files: flashtool-${{ matrix.platform }}.${{ matrix.archive_ext }}
           generate_release_notes: true
