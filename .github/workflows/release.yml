@@ -82,6 +82,10 @@ jobs:
       - name: Build Electron app
         run: npx quasar build -m electron
 
+      # quasar build exits before @electron/packager finishes, so run it explicitly.
+      - name: Package Electron app
+        run: npx electron-packager dist/electron/UnPackaged --out dist/electron/Packaged --overwrite --extra-resource resources/tools
+
       # ── Archive the packager output ─────────────────────────────────────────
       # @electron/packager emits a single directory under dist/electron/Packaged/
       # named "<productName>-<platform>-<arch>/" (e.g. "Flash Tool-win32-x64/").

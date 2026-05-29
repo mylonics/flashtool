@@ -143,19 +143,19 @@
       "version": "v1.8.0",
       "platforms": {
         "win32-x64": {
-          "url": "https://github.com/stlink-org/stlink/releases/download/v1.8.0/stlink-1.8.0-x86_64-w64-mingw32.zip",
+          "url": "https://github.com/stlink-org/stlink/releases/download/v1.8.0/stlink-1.8.0-win32.zip",
           "type": "zip",
           "extract": [
             {
-              "src": "bin/st-flash.exe",
+              "src": "stlink-1.8.0-win32/bin/st-flash.exe",
               "dest": "st-flash.exe"
             },
             {
-              "src": "bin/st-info.exe",
+              "src": "stlink-1.8.0-win32/bin/st-info.exe",
               "dest": "st-info.exe"
             },
             {
-              "src": "bin",
+              "src": "stlink-1.8.0-win32/bin",
               "dest": ".",
               "glob": "*.dll",
               "isGlob": true
