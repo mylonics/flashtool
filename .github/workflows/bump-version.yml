@@ -58,7 +58,7 @@ jobs:
       # configurations even when a PAT is used for the push.
       - name: Dispatch release workflow
         env:
-          GH_TOKEN: ${{ secrets.PAT_GITHUB }}
+          GH_TOKEN: ${{ secrets.PAT_GITHUB || github.token }}
         run: |
           gh workflow run release.yml \
             --repo ${{ github.repository }} \
