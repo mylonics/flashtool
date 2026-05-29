@@ -50,7 +50,19 @@ jobs:
           git add package.json
           git commit -m "chore: bump version ${{ steps.version.outputs.old }} → ${{ steps.version.outputs.new }}"
           git tag ${{ steps.version.outputs.tag }}
-          git push origin HEAD ${{ steps.version.outputs.tag }}
+          git push origin HEAD
+          git push origin ${{ steps.version.outputs.tag }}
+
+      # Explicitly dispatch release.yml rather than relying on the tag push
+      # to chain workflows — GitHub blocks cross-workflow triggers in many
+      # configurations even when a PAT is used for the push.
+      - name: Dispatch release workflow
+        env:
+          GH_TOKEN: ${{ secrets.PAT_GITHUB }}
+        run: |
+          gh workflow run release.yml \
+            --repo ${{ github.repository }} \
+            --field tag=${{ steps.version.outputs.tag }}
 
       - name: Summary
         run: |
@@ -58,4 +70,4 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "**${{ steps.version.outputs.old }}** → **${{ steps.version.outputs.new }}**" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Tag \`${{ steps.version.outputs.tag }}\` pushed — release workflow triggered." >> "$GITHUB_STEP_SUMMARY"
+          echo "Tag \`${{ steps.version.outputs.tag }}\` created — release workflow dispatched." >> "$GITHUB_STEP_SUMMARY"
