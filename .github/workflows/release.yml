@@ -32,9 +32,9 @@ jobs:
     name: Build ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: 'npm'
@@ -93,6 +93,8 @@ jobs:
       # The release is created automatically from the tag if it doesn't exist.
       - name: Upload release artifact
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_GITHUB }}
         with:
           files: flashtool-${{ matrix.platform }}.${{ matrix.archive_ext }}
           generate_release_notes: true
