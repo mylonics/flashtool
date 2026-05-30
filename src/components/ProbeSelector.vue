@@ -88,7 +88,7 @@ const flashTool = ref(session.value?.config.flashTool ?? 'stlink');
 
 const probeOptions = computed(() =>
   detectedProbes.value.map((p) => ({
-    label: `${p.name} (${p.path})`,
+    label: p.name,
     value: p.path,
     probe: p,
   })),
@@ -120,11 +120,10 @@ async function detectProbes() {
 function onProbeSelect(path: string | null) {
   const probe = detectedProbes.value.find((p) => p.path === path) ?? null;
   store.updateProbe(props.sessionId, probe);
-  if (probe) {
-    // Default flash tool for stlink
-    if (probe.type === 'stlink') {
-      store.updateConfig(props.sessionId, { flashTool: flashTool.value });
-    }
+  if (probe?.type === 'stlink') {
+    // Always default STLink to OpenOCD; sync the local ref so the toggle shows correctly
+    flashTool.value = 'openocd';
+    store.updateConfig(props.sessionId, { flashTool: 'openocd' });
   }
 }
 

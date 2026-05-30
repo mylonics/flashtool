@@ -28,7 +28,9 @@ export interface FlashConfig {
   /** Path to the ELF/HEX/BIN firmware file */
   firmwarePath: string;
   probeType: ProbeType;
-  /** For BMP: path to gdb executable */
+  /** For BMP: override the bundled GDB (false = always use bundled/resolved GDB) */
+  gdbOverride?: boolean;
+  /** For BMP: custom GDB executable path or name; empty = use arm-none-eabi-gdb from system PATH */
   gdbPath?: string;
   /** For STLink: use openocd instead of st-flash */
   flashTool?: FlashTool;
@@ -36,14 +38,24 @@ export interface FlashConfig {
   openocdTarget?: string;
   /** For OpenOCD: interface config file */
   openocdInterface?: string;
+  /** For OpenOCD: whether the user has explicitly set an interface override */
+  openocdInterfaceOverride?: boolean;
   /** BMP: target index (default 1) */
   targetId?: number;
   /** BMP: use SWD (default) or JTAG */
   interface?: 'swd' | 'jtag';
   /** BMP: enable power over BMP (tpwr) */
   powerOverBMP?: boolean;
+  /** BMP/OpenOCD: base load address for raw .bin files (e.g. 0x08000000) */
+  flashAddress?: string;
+  /** BMP: override the auto-detected UART/RTT serial port (e.g. COM6) */
+  bmpUartPort?: string;
   /** RTT: base address (auto = detect from ELF symbols, or explicit address) */
   rttAddress?: string;
+  /** OpenOCD RTT: start address for scanning the RTT control block */
+  rttScanAddress?: string;
+  /** OpenOCD RTT: size of the memory region to scan for the RTT control block */
+  rttScanSize?: string;
 }
 
 export interface RttLine {
@@ -69,10 +81,13 @@ export const IPC = {
   FLASH_START: 'flash:start',
   FLASH_CANCEL: 'flash:cancel',
   FLASH_STATUS: 'flash:status',
+  FLASH_AND_RTT_START: 'flash-and-rtt:start',
   RTT_START: 'rtt:start',
   RTT_STOP: 'rtt:stop',
   RTT_DATA: 'rtt:data',
   RTT_SEND: 'rtt:send',
+  PORT_LIST: 'port:list',
+  OPENOCD_CFG_LIST: 'openocd:cfg-list',
   SESSION_LIST: 'session:list',
   SESSION_CREATE: 'session:create',
   SESSION_DELETE: 'session:delete',

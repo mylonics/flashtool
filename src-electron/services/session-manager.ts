@@ -4,6 +4,7 @@ import { StlinkService } from './stlink-service';
 import { OpenOcdService } from './openocd-service';
 import type { RttDataFn, StatusFn, LogFn } from './openocd-service';
 
+
 interface Session {
   id: string;
   bmp?: BmpService;
@@ -78,6 +79,37 @@ export class SessionManager {
 
     // openocd probe
     session.openocd ??= new OpenOcdService();
+    return session.openocd.startRtt(probe, config, onData, status);
+  }
+
+  /**
+   * Flash + RTT in a single GDB session (BMP only).
+   * For non-BMP probes, falls back to sequential flash then RTT.
+   */
+  async flashAndStartRtt(
+    sessionId: string,
+    probe: ProbeInfo,
+    config: FlashConfig,
+    log: LogFn,
+    onData: RttDataFn,
+    status: StatusFn,
+  ): Promise<void> {
+    const session = this.getOrCreate(sessionId);
+
+    if (probe.type === 'bmp') {
+      session.bmp ??= new BmpService();
+      return session.bmp.flashAndStartRtt(probe, config, log, onData, status);
+    }
+
+    // Non-BMP fallback: sequential flash then RTT (separate processes, same as before).
+    if (probe.type === 'stlink') {
+      session.stlink ??= new StlinkService();
+      await session.stlink.flash(probe, config, log, status);
+      return session.stlink.startRtt(probe, config, onData, status);
+    }
+
+    session.openocd ??= new OpenOcdService();
+    await session.openocd.flash(probe, config, log, status);
     return session.openocd.startRtt(probe, config, onData, status);
   }
 

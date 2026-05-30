@@ -19,14 +19,19 @@ export const useSessionsStore = defineStore('sessions', () => {
       config: {
         firmwarePath: '',
         probeType: 'bmp',
-        gdbPath: 'arm-none-eabi-gdb',
+        gdbOverride: false,
+        gdbPath: '',
         flashTool: 'stlink',
-        openocdTarget: 'board/nrf52840dk_nrf52840.cfg',
-        openocdInterface: 'interface/stlink.cfg',
+        openocdTarget: 'target/nrf52.cfg',
+        openocdInterface: '',
+        openocdInterfaceOverride: false,
         targetId: 1,
         interface: 'swd',
         powerOverBMP: false,
+        flashAddress: '0x08000000',
         rttAddress: 'auto',
+        rttScanAddress: '0x20000000',
+        rttScanSize: '0x40000',
       },
       status: 'idle',
       flashLog: [],
@@ -59,6 +64,9 @@ export const useSessionsStore = defineStore('sessions', () => {
       s.probe = probe;
       if (probe) {
         s.config.probeType = probe.type;
+        if (probe.type === 'stlink' && s.config.flashTool !== 'openocd') {
+          s.config.flashTool = 'openocd';
+        }
       }
     }
   }
@@ -105,6 +113,11 @@ export const useSessionsStore = defineStore('sessions', () => {
     if (s) s.rttLines = [];
   }
 
+  function clearFlashLog(sessionId: string) {
+    const s = sessions.value.find((x) => x.id === sessionId);
+    if (s) s.flashLog = [];
+  }
+
   return {
     sessions,
     activeSessionId,
@@ -118,5 +131,6 @@ export const useSessionsStore = defineStore('sessions', () => {
     appendFlashLog,
     appendRttLine,
     clearRtt,
+    clearFlashLog,
   };
 });

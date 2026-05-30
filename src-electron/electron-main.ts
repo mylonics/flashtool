@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { SessionManager } from './services/session-manager';
 import { ProbeDetector } from './services/probe-detector';
+import { ToolResolver } from './services/tool-resolver';
+import { SerialPort } from 'serialport';
 import { IPC } from '../src/types';
 import type { ProbeInfo, FlashConfig } from '../src/types';
 
@@ -42,7 +44,7 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     void mainWindow.loadFile(
-      path.resolve(__dirname, '../renderer/index.html'),
+      path.resolve(__dirname, 'index.html'),
     );
   }
 
@@ -57,6 +59,15 @@ ipcMain.handle(IPC.PROBE_DETECT, async () => {
   return probeDetector.detect();
 });
 
+ipcMain.handle(IPC.PORT_LIST, async () => {
+  const ports = await SerialPort.list();
+  return ports.map((p) => p.path).sort();
+});
+
+ipcMain.handle(IPC.OPENOCD_CFG_LIST, async (_event, subdirs: string[]) => {
+  return ToolResolver.listOpenOcdCfgs(subdirs);
+});
+
 ipcMain.handle(
   IPC.FLASH_START,
   async (_event, sessionId: string, probe: ProbeInfo, config: FlashConfig) => {
@@ -66,7 +77,12 @@ ipcMain.handle(
     const statusFn = (status: string, error?: string) => {
       mainWindow?.webContents.send(`session:status:${sessionId}`, status, error);
     };
-    return sessionManager.flash(sessionId, probe, config, logFn, statusFn);
+    try {
+      await sessionManager.flash(sessionId, probe, config, logFn, statusFn);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
   },
 );
 
@@ -83,13 +99,39 @@ ipcMain.handle(
     const statusFn = (status: string, error?: string) => {
       mainWindow?.webContents.send(`session:status:${sessionId}`, status, error);
     };
-    return sessionManager.startRtt(sessionId, probe, config, dataFn, statusFn);
+    try {
+      await sessionManager.startRtt(sessionId, probe, config, dataFn, statusFn);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
   },
 );
 
 ipcMain.handle(IPC.RTT_STOP, async (_event, sessionId: string) => {
   sessionManager.stopRtt(sessionId);
 });
+
+ipcMain.handle(
+  IPC.FLASH_AND_RTT_START,
+  async (_event, sessionId: string, probe: ProbeInfo, config: FlashConfig) => {
+    const logFn = (line: string) => {
+      mainWindow?.webContents.send(`${IPC.FLASH_STATUS}:${sessionId}`, line);
+    };
+    const dataFn = (line: string, type: 'output' | 'error' | 'info') => {
+      mainWindow?.webContents.send(`${IPC.RTT_DATA}:${sessionId}`, line, type);
+    };
+    const statusFn = (status: string, error?: string) => {
+      mainWindow?.webContents.send(`session:status:${sessionId}`, status, error);
+    };
+    try {
+      await sessionManager.flashAndStartRtt(sessionId, probe, config, logFn, dataFn, statusFn);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+  },
+);
 
 ipcMain.handle(
   'dialog:openFile',

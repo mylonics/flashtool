@@ -23,10 +23,47 @@
   color: #9cdcfe;
 }
 
-.session-tab-panel {
-  height: calc(100vh - 120px);
+.session-layout {
+  display: flex;
+  flex-direction: row;
+  height: calc(100vh - 98px);
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.session-left {
+  width: 370px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.session-right {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.output-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.output-panels {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.output-panel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
 .flash-log {
@@ -38,6 +75,5 @@
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  border-radius: 4px;
-  min-height: 100px;
+  height: 100%;
 }

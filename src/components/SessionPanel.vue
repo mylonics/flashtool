@@ -1,79 +1,69 @@
 <template>
-  <div class="session-tab-panel">
-    <div class="row q-pa-md q-col-gutter-md col">
-      <!-- Left panel: probe + config -->
-      <div class="col-12 col-md-4">
-        <q-card flat bordered class="q-mb-md">
-          <q-card-section class="q-pb-none">
-            <div class="text-subtitle1">Probe</div>
-          </q-card-section>
-          <q-card-section>
-            <ProbeSelector :session-id="sessionId" />
-          </q-card-section>
-        </q-card>
+  <div class="session-layout">
+    <!-- Left: probe + config, fixed width, scrollable -->
+    <div class="session-left">
+      <q-card flat bordered class="q-mb-md">
+        <q-card-section class="q-pb-none">
+          <div class="text-subtitle1">Probe</div>
+        </q-card-section>
+        <q-card-section>
+          <ProbeSelector :session-id="sessionId" />
+        </q-card-section>
+      </q-card>
 
-        <q-card flat bordered class="q-mb-md">
-          <q-card-section class="q-pb-none">
-            <div class="text-subtitle1">Flash Configuration</div>
-          </q-card-section>
-          <q-card-section>
-            <FlashPanel :session-id="sessionId" />
-          </q-card-section>
-        </q-card>
-      </div>
+      <q-card flat bordered>
+        <q-card-section class="q-pb-none">
+          <div class="text-subtitle1">Flash Configuration</div>
+        </q-card-section>
+        <q-card-section>
+          <FlashPanel :session-id="sessionId" />
+        </q-card-section>
+      </q-card>
+    </div>
 
-      <!-- Right panel: RTT terminal -->
-      <div class="col-12 col-md-8">
-        <q-card flat bordered style="height: 100%; min-height: 400px;">
-          <q-card-section class="q-pb-none row items-center">
-            <div class="text-subtitle1 col">RTT Output</div>
-            <q-badge
-              :color="rttStatusColor"
-              :label="rttStatusLabel"
-              class="q-mr-sm"
-            />
-            <q-btn
-              v-if="session?.status !== 'rtt-active'"
-              flat
-              dense
-              round
-              icon="play_arrow"
-              color="positive"
-              title="Start RTT"
-              :disable="!session?.probe || session?.status === 'flashing'"
-              @click="startRtt"
-            />
-            <q-btn
-              v-else
-              flat
-              dense
-              round
-              icon="stop"
-              color="negative"
-              title="Stop RTT"
-              @click="stopRtt"
-            />
-            <q-btn
-              flat
-              dense
-              round
-              icon="delete_sweep"
-              title="Clear"
-              @click="store.clearRtt(sessionId)"
-            />
-          </q-card-section>
-          <q-card-section class="q-pt-sm" style="height: calc(100% - 56px);">
+    <!-- Right: combined output, fills remaining space -->
+    <div class="session-right">
+      <q-card flat bordered class="output-card">
+        <!-- Toolbar -->
+        <div class="row items-center no-wrap q-px-sm" style="min-height: 44px;">
+          <q-tabs v-model="outputTab" dense align="left" class="col" indicator-color="primary">
+            <q-tab name="flashlog" icon="terminal" label="Flash Log" />
+            <q-tab name="rtt" icon="bolt" label="RTT" />
+          </q-tabs>
+          <q-badge :color="statusColor" :label="statusLabel" class="q-mx-sm" />
+          <q-btn flat dense round icon="delete_sweep" title="Clear current tab" @click="clearOutput" />
+        </div>
+        <q-separator />
+
+        <!-- Error banner -->
+        <q-banner
+          v-if="session?.status === 'error'"
+          inline-actions
+          class="text-white bg-negative"
+          dense
+        >
+          {{ session?.errorMessage }}
+        </q-banner>
+
+        <!-- Tab panels -->
+        <div class="output-panels">
+          <div v-show="outputTab === 'flashlog'" class="output-panel">
+            <div ref="flashLogRef" class="flash-log">
+              <div v-for="(line, i) in session?.flashLog ?? []" :key="i">{{ line }}</div>
+              <div ref="flashLogBottomRef" />
+            </div>
+          </div>
+          <div v-show="outputTab === 'rtt'" class="output-panel">
             <RttTerminal :session-id="sessionId" />
-          </q-card-section>
-        </q-card>
-      </div>
+          </div>
+        </div>
+      </q-card>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useQuasar } from 'quasar';
+import { ref, computed, watch, nextTick } from 'vue';
 import { useSessionsStore } from '../stores/sessions';
 import ProbeSelector from './ProbeSelector.vue';
 import FlashPanel from './FlashPanel.vue';
@@ -82,63 +72,57 @@ import { useSessionIpc } from '../composables/useSessionIpc';
 
 const props = defineProps<{ sessionId: string }>();
 const store = useSessionsStore();
-const $q = useQuasar();
 
-// Wire IPC events from Electron main process to Pinia store
 useSessionIpc(props.sessionId);
 
 const session = computed(() =>
   store.sessions.find((s) => s.id === props.sessionId),
 );
 
-const rttStatusColor = computed(() => {
+const outputTab = ref<'flashlog' | 'rtt'>('flashlog');
+const flashLogRef = ref<HTMLDivElement | null>(null);
+const flashLogBottomRef = ref<HTMLDivElement | null>(null);
+
+// Auto-switch tabs based on session status
+watch(
+  () => session.value?.status,
+  (status) => {
+    if (status === 'flashing') outputTab.value = 'flashlog';
+    else if (status === 'rtt-active') outputTab.value = 'rtt';
+  },
+);
+
+// Auto-scroll flash log when new lines arrive
+watch(
+  () => session.value?.flashLog.length,
+  async () => {
+    if (outputTab.value !== 'flashlog') return;
+    await nextTick();
+    flashLogBottomRef.value?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  },
+);
+
+function clearOutput() {
+  if (outputTab.value === 'flashlog') store.clearFlashLog(props.sessionId);
+  else store.clearRtt(props.sessionId);
+}
+
+const statusColor = computed(() => {
   switch (session.value?.status) {
-    case 'rtt-active':
-      return 'positive';
-    case 'error':
-      return 'negative';
-    case 'flashing':
-      return 'warning';
-    default:
-      return 'grey';
+    case 'rtt-active': return 'positive';
+    case 'error':      return 'negative';
+    case 'flashing':   return 'warning';
+    default:           return 'grey';
   }
 });
 
-const rttStatusLabel = computed(() => {
+const statusLabel = computed(() => {
   switch (session.value?.status) {
-    case 'rtt-active':
-      return 'RTT Active';
-    case 'error':
-      return 'Error';
-    case 'flashing':
-      return 'Flashing…';
-    case 'detecting':
-      return 'Detecting…';
-    default:
-      return 'Idle';
+    case 'rtt-active': return 'RTT Active';
+    case 'error':      return 'Error';
+    case 'flashing':   return 'Flashing…';
+    case 'detecting':  return 'Detecting…';
+    default:           return 'Idle';
   }
 });
-
-async function startRtt() {
-  if (!window.flashToolApi) {
-    $q.notify({ type: 'negative', message: 'Flash Tool API not available' });
-    return;
-  }
-  const s = session.value;
-  if (!s?.probe) {
-    $q.notify({ type: 'warning', message: 'No probe selected' });
-    return;
-  }
-  try {
-    await window.flashToolApi.startRtt(props.sessionId, s.probe, s.config);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    $q.notify({ type: 'negative', message: `RTT start failed: ${msg}` });
-  }
-}
-
-async function stopRtt() {
-  if (!window.flashToolApi) return;
-  await window.flashToolApi.stopRtt(props.sessionId);
-}
 </script>

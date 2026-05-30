@@ -48,14 +48,35 @@ export class ProbeDetector {
         bySerial.get(sn)!.push(port);
       }
 
+      const bmpProbeList: ProbeInfo[] = [];
+
       for (const [sn, ports] of bySerial) {
         // Sort by path so lowest index is first (MI_00 = GDB, MI_01 = UART/RTT)
         ports.sort((a, b) => a.path.localeCompare(b.path));
 
         const gdbPort = this.findBmpGdbPort(ports);
-        const uartPort = this.findBmpUartPort(ports, gdbPort);
 
-        probes.push({
+        // Skip groups where the primary port is the UART interface (MI_01).
+        // These will be picked up as the uartPort of the GDB-port probe.
+        const primaryPnpId = ((gdbPort ?? ports[0])?.pnpId ?? '').toUpperCase();
+        if (primaryPnpId.includes('MI_01') || primaryPnpId.includes('MI#01')) {
+          continue;
+        }
+
+        // For the UART search, expand candidates to ALL ports that share the same
+        // serial number (not just those matching BMP VID/PID). Some BMP firmware
+        // versions expose the two CDC interfaces with slightly different descriptors
+        // so the UART port may not appear in the VID/PID-filtered list.
+        const uartCandidates =
+          sn !== 'unknown'
+            ? allPorts
+                .filter((p) => (p.serialNumber ?? 'unknown') === sn)
+                .sort((a, b) => a.path.localeCompare(b.path))
+            : ports;
+
+        const uartPort = this.findBmpUartPort(uartCandidates, gdbPort, allPorts);
+
+        bmpProbeList.push({
           path: gdbPort?.path ?? ports[0]!.path,
           gdbPort: gdbPort?.path,
           uartPort: uartPort?.path,
@@ -65,6 +86,28 @@ export class ProbeDetector {
           manufacturer: gdbPort?.manufacturer ?? 'Black Magic Debug',
         });
       }
+
+      // Fallback merge: if two probes have adjacent COM ports and the lower one
+      // has no uartPort yet, absorb the higher one as its UART port. This handles
+      // the case where each CDC interface gets a different serial number so they
+      // ended up as separate groups above.
+      bmpProbeList.sort((a, b) => (a.gdbPort ?? a.path).localeCompare(b.gdbPort ?? b.path));
+      for (let i = 0; i < bmpProbeList.length - 1; i++) {
+        const curr = bmpProbeList[i]!;
+        const next = bmpProbeList[i + 1]!;
+        if (
+          curr.gdbPort &&
+          next.gdbPort &&
+          !curr.uartPort &&
+          this.incrementPortPath(curr.gdbPort) === next.gdbPort
+        ) {
+          curr.uartPort = next.gdbPort;
+          bmpProbeList.splice(i + 1, 1);
+          i -= 1;
+        }
+      }
+
+      probes.push(...bmpProbeList);
     }
 
     // ── STLink detection ────────────────────────────────────────────────────────
@@ -244,6 +287,7 @@ export class ProbeDetector {
   private findBmpUartPort(
     ports: Awaited<ReturnType<typeof SerialPort.list>>,
     gdbPort: Awaited<ReturnType<typeof SerialPort.list>>[0] | null,
+    allPorts?: Awaited<ReturnType<typeof SerialPort.list>>,
   ) {
     // Strategy 1: pnpId contains MI_01 or MI#01
     const byPnpId = ports.find((p) => {
@@ -262,6 +306,14 @@ export class ProbeDetector {
     // Strategy 3: second port in sorted list
     if (gdbPort) {
       return ports.find((p) => p.path !== gdbPort.path) ?? null;
+    }
+
+    // Strategy 4: adjacent COM port in ALL ports (last-resort when UART port
+    // doesn't share serial number / VID-PID with the GDB port)
+    if (gdbPort && allPorts) {
+      const nextPath = this.incrementPortPath(gdbPort.path);
+      const anyNext = allPorts.find((p) => p.path === nextPath);
+      if (anyNext) return anyNext;
     }
 
     return ports[1] ?? null;

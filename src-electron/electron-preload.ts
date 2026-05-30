@@ -8,25 +8,47 @@ contextBridge.exposeInMainWorld('flashToolApi', {
   detectProbes: (): Promise<ProbeInfo[]> =>
     ipcRenderer.invoke(IPC.PROBE_DETECT),
 
+  /** List all available serial port paths */
+  listPorts: (): Promise<string[]> =>
+    ipcRenderer.invoke(IPC.PORT_LIST),
+
+  /** List .cfg files in the given OpenOCD scripts subdirectories */
+  listOpenOcdCfgs: (subdirs: string[]): Promise<string[]> =>
+    ipcRenderer.invoke(IPC.OPENOCD_CFG_LIST, subdirs),
+
   /** Flash firmware to a target */
-  flash: (
+  flash: async (
     sessionId: string,
     probe: ProbeInfo,
     config: FlashConfig,
-  ): Promise<void> =>
-    ipcRenderer.invoke(IPC.FLASH_START, sessionId, probe, config),
+  ): Promise<void> => {
+    const err = await ipcRenderer.invoke(IPC.FLASH_START, sessionId, probe, config) as string | null;
+    if (err) throw new Error(err);
+  },
 
   /** Cancel an in-progress flash */
   cancelFlash: (sessionId: string): Promise<void> =>
     ipcRenderer.invoke(IPC.FLASH_CANCEL, sessionId),
 
   /** Start RTT session */
-  startRtt: (
+  startRtt: async (
     sessionId: string,
     probe: ProbeInfo,
     config: FlashConfig,
-  ): Promise<void> =>
-    ipcRenderer.invoke(IPC.RTT_START, sessionId, probe, config),
+  ): Promise<void> => {
+    const err = await ipcRenderer.invoke(IPC.RTT_START, sessionId, probe, config) as string | null;
+    if (err) throw new Error(err);
+  },
+
+  /** Flash firmware then immediately start RTT in a single GDB session (BMP-native) */
+  flashAndRtt: async (
+    sessionId: string,
+    probe: ProbeInfo,
+    config: FlashConfig,
+  ): Promise<void> => {
+    const err = await ipcRenderer.invoke(IPC.FLASH_AND_RTT_START, sessionId, probe, config) as string | null;
+    if (err) throw new Error(err);
+  },
 
   /** Stop RTT session */
   stopRtt: (sessionId: string): Promise<void> =>
@@ -83,6 +105,8 @@ declare global {
   interface Window {
     flashToolApi: {
       detectProbes: () => Promise<ProbeInfo[]>;
+      listPorts: () => Promise<string[]>;
+      listOpenOcdCfgs: (subdirs: string[]) => Promise<string[]>;
       flash: (
         sessionId: string,
         probe: ProbeInfo,
@@ -90,6 +114,11 @@ declare global {
       ) => Promise<void>;
       cancelFlash: (sessionId: string) => Promise<void>;
       startRtt: (
+        sessionId: string,
+        probe: ProbeInfo,
+        config: FlashConfig,
+      ) => Promise<void>;
+      flashAndRtt: (
         sessionId: string,
         probe: ProbeInfo,
         config: FlashConfig,

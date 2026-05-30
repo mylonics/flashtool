@@ -34,9 +34,9 @@ export class OpenOcdService {
     log: LogFn,
     status: StatusFn,
   ): Promise<void> {
-    const interfaceCfg =
-      config.openocdInterface ??
-      (probe.type === 'bmp' ? 'interface/cmsis-dap.cfg' : 'interface/stlink.cfg');
+    const interfaceCfg = config.openocdInterfaceOverride && config.openocdInterface
+      ? config.openocdInterface
+      : (probe.type === 'bmp' ? 'interface/cmsis-dap.cfg' : 'interface/stlink.cfg');
     const targetCfg = config.openocdTarget ?? 'board/nrf52840dk_nrf52840.cfg';
 
     const [openocdBin, scriptsDir] = await Promise.all([
@@ -49,7 +49,8 @@ export class OpenOcdService {
       ...scriptsArg,
       '-f', interfaceCfg,
       '-f', targetCfg,
-      '-c', `program ${config.firmwarePath} verify reset exit`,
+      // Quote path and use forward slashes so OpenOCD's TCL doesn't split on spaces
+      '-c', `program "${config.firmwarePath.replace(/\\/g, '/')}" verify reset exit`,
     ];
 
     log(`[openocd] Running: openocd ${args.join(' ')}`);
@@ -96,13 +97,13 @@ export class OpenOcdService {
     onData: RttDataFn,
     status: StatusFn,
   ): Promise<void> {
-    const interfaceCfg =
-      config.openocdInterface ??
-      (probe.type === 'bmp' ? 'interface/cmsis-dap.cfg' : 'interface/stlink.cfg');
+    const interfaceCfg = config.openocdInterfaceOverride && config.openocdInterface
+      ? config.openocdInterface
+      : (probe.type === 'bmp' ? 'interface/cmsis-dap.cfg' : 'interface/stlink.cfg');
     const targetCfg = config.openocdTarget ?? 'board/nrf52840dk_nrf52840.cfg';
-    const rttAddr = config.rttAddress && config.rttAddress !== 'auto'
-      ? `rtt setup ${config.rttAddress} 0x10 "SEGGER RTT"`
-      : 'rtt setup auto';
+    const rttScanAddr = config.rttScanAddress ?? '0x20000000';
+    const rttScanSize = config.rttScanSize ?? '0x40000';
+    const rttAddr = `rtt setup ${rttScanAddr} ${rttScanSize} "SEGGER RTT"`;
 
     const [openocdBin, scriptsDir] = await Promise.all([
       ToolResolver.openocd(),
@@ -115,7 +116,7 @@ export class OpenOcdService {
       '-f', interfaceCfg,
       '-f', targetCfg,
       '-c', `rtt server start ${this.rttPort} 0`,
-      '-c', `init; reset init; ${rttAddr}; rtt start`,
+      '-c', `init; reset init; ${rttAddr}; rtt start; resume`,
     ];
 
     onData(`[openocd] Starting RTT server on port ${this.rttPort}…`, 'info');
@@ -123,7 +124,7 @@ export class OpenOcdService {
     await new Promise<void>((resolve, reject) => {
       this.rttProc = spawn(openocdBin, args, { stdio: 'pipe' });
 
-      const ready = /rtt server started/i;
+      const ready = /Listening on port \d+ for rtt|rtt server started/i;
       let resolved = false;
 
       const tryResolve = (line: string) => {
