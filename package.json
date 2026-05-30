@@ -1,6 +1,6 @@
 {
   "name": "flashtool",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Flash Tool for BMP, STLink, and OpenOCD",
   "productName": "Flash Tool",
   "author": "Mylonics",
