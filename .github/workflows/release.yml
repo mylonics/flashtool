@@ -30,7 +30,7 @@ jobs:
             electron_platform: linux
             electron_arch: x64
             archive_ext: tar.gz
-          - os: macos-13
+          - os: macos-15-intel
             platform: darwin-x64
             electron_platform: darwin
             electron_arch: x64
