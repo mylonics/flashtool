@@ -22,15 +22,23 @@ jobs:
         include:
           - os: windows-latest
             platform: win32-x64
+            electron_platform: win32
+            electron_arch: x64
             archive_ext: zip
           - os: ubuntu-latest
             platform: linux-x64
+            electron_platform: linux
+            electron_arch: x64
             archive_ext: tar.gz
           - os: macos-13
             platform: darwin-x64
+            electron_platform: darwin
+            electron_arch: x64
             archive_ext: tar.gz
           - os: macos-latest   # macos-14+ = Apple Silicon
             platform: darwin-arm64
+            electron_platform: darwin
+            electron_arch: arm64
             archive_ext: tar.gz
 
     runs-on: ${{ matrix.os }}
@@ -79,8 +87,26 @@ jobs:
           echo "Tools directory contents:"
           ls -la "resources/tools/${{ matrix.platform }}" || true
 
+      # quasar build compiles the app into dist/electron/UnPackaged but does
+      # not reliably complete the @electron/packager step in CI. Run it
+      # explicitly using the locally installed package so no download occurs.
       - name: Build Electron app
         run: npx quasar build -m electron
+
+      - name: Package Electron app
+        shell: bash
+        run: |
+          ELECTRON_VER=$(node -p "require('./node_modules/electron/package.json').version")
+          echo "Packaging with electron $ELECTRON_VER for ${{ matrix.electron_platform }}-${{ matrix.electron_arch }}"
+          npx electron-packager dist/electron/UnPackaged flashtool \
+            --platform "${{ matrix.electron_platform }}" \
+            --arch "${{ matrix.electron_arch }}" \
+            --out dist/electron/Packaged \
+            --overwrite \
+            --extra-resource resources/tools \
+            --electron-version "$ELECTRON_VER"
+          echo "Packaged output:"
+          ls -la dist/electron/Packaged/
 
       # ── Archive the packager output ─────────────────────────────────────────
       # @electron/packager emits a single directory under dist/electron/Packaged/

@@ -7,5 +7,25 @@
       ],
       "url": "file:///c%3A/Users/Rijesh/.vscode/extensions/mylonics.zephyr-ide-3.3.3/resources/zephyr-ide-schema.json"
     }
-  ]
+  ],
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#ddfd29",
+    "activityBar.background": "#ddfd29",
+    "activityBar.foreground": "#15202b",
+    "activityBar.inactiveForeground": "#15202b99",
+    "activityBarBadge.background": "#02a1bd",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "commandCenter.border": "#15202b99",
+    "sash.hoverBorder": "#ddfd29",
+    "statusBar.background": "#cdf102",
+    "statusBar.foreground": "#15202b",
+    "statusBarItem.hoverBackground": "#a2be02",
+    "statusBarItem.remoteBackground": "#cdf102",
+    "statusBarItem.remoteForeground": "#15202b",
+    "titleBar.activeBackground": "#cdf102",
+    "titleBar.activeForeground": "#15202b",
+    "titleBar.inactiveBackground": "#cdf10299",
+    "titleBar.inactiveForeground": "#15202b99"
+  },
+  "peacock.color": "#cdf102"
 }
