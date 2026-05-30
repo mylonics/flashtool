@@ -1,9 +1,8 @@
-name: Release Test D — Local packager CLI
+name: Release Test D — Node 24 + upgraded packager
 
-# Strategy D: bypass `npx` (which may resolve to the deprecated standalone
-# `electron-packager` package) and invoke the locally installed
-# @electron/packager binary directly, with --no-tmpdir and debug logging.
-# Linux-only.
+# Strategy D: stay on Node 24 but upgrade @electron/packager to the latest
+# release first — in case a newer version fixes the post-extraction stall on
+# Node 24. Then package via the programmatic API. Linux-only.
 
 on:
   workflow_dispatch:
@@ -14,7 +13,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Test D (local CLI, linux-x64)
+    name: Test D (node24, @electron/packager@latest, linux-x64)
     steps:
       - uses: actions/checkout@v4
 
@@ -29,6 +28,11 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Upgrade @electron/packager to latest
+        run: |
+          npm install --save-dev @electron/packager@latest
+          node -p "'@electron/packager ' + require('@electron/packager/package.json').version"
+
       - name: Download tools
         run: node scripts/download-tools.js
 
@@ -38,23 +42,11 @@ jobs:
       - name: Build Electron app (UnPackaged)
         run: npx quasar build -m electron
 
-      - name: Package with local @electron/packager binary
-        shell: bash
+      - name: Package Electron app
         env:
           DEBUG: '@electron/packager,@electron/packager:*'
           DEBUG_COLORS: '0'
-        run: |
-          ELECTRON_VER=$(node -p "require('./node_modules/electron/package.json').version")
-          BIN="node_modules/@electron/packager/bin/electron-packager.mjs"
-          echo "Using binary: $BIN (electron v$ELECTRON_VER)"
-          node "$BIN" dist/electron/UnPackaged flashtool \
-            --platform linux \
-            --arch x64 \
-            --out dist/electron/Packaged \
-            --overwrite \
-            --no-tmpdir \
-            --electron-version "$ELECTRON_VER" \
-            --extra-resource resources/tools
+        run: node scripts/package-electron.js --platform linux --arch x64 --no-tmpdir
 
       - name: Verify and archive
         shell: bash
@@ -71,5 +63,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: testD-local-cli-linux-x64
+          name: testD-node24-upgraded-linux-x64
           path: flashtool-linux-x64.tar.gz

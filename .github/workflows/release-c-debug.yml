@@ -1,9 +1,8 @@
-name: Release Test C — Packager (debug logs)
+name: Release Test C — Node 22 + Packager API
 
-# Strategy C: same programmatic packaging as B, but with @electron/packager's
-# internal debug logging enabled so the *real* reason for an empty result is
-# printed. The helper script also try/catches and prints full stack traces.
-# Use this run to diagnose if A, B and D all fail. Linux-only.
+# Strategy C: Node 22 LTS, same programmatic packaging as B with debug logging.
+# Confirms whether the next LTS (22) also works, and surfaces the real flow if
+# it doesn't. Linux-only.
 
 on:
   workflow_dispatch:
@@ -14,13 +13,13 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Test C (packager debug, linux-x64)
+    name: Test C (node22, packager debug, linux-x64)
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install system dependencies

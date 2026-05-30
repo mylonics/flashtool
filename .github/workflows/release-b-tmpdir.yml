@@ -1,9 +1,9 @@
-name: Release Test B — Packager (no tmpdir)
+name: Release Test B — Node 20 + Packager API
 
-# Strategy B: run @electron/packager via the programmatic API
-# (scripts/package-electron.js) with --no-tmpdir, so the bundle is built
-# directly under dist/electron/Packaged instead of in the OS temp dir. This
-# avoids a silent cross-device move failure on CI. Linux-only.
+# Strategy B: Node 20 LTS. Run @electron/packager via the programmatic API
+# (scripts/package-electron.js) with --no-tmpdir. The Node 24 runs stalled
+# right after extracting the Electron zip (exit 13, unsettled top-level await);
+# Node 20 is the supported runtime. Linux-only.
 
 on:
   workflow_dispatch:
@@ -14,13 +14,13 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Test B (packager --no-tmpdir, linux-x64)
+    name: Test B (node20, packager --no-tmpdir, linux-x64)
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install system dependencies
