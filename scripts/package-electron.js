@@ -39,10 +39,15 @@ const getArg = (name) =>
 
 const platform = getArg('platform');
 const arch = getArg('arch');
+// By default @electron/packager builds in the OS temp dir then moves the result
+// into --out. On CI the temp dir and the workspace can live on different mounts,
+// and a failed cross-device move can leave zero output with a 0 exit code.
+// --no-tmpdir builds directly under --out (same filesystem → rename always works).
+const noTmpdir = args.includes('--no-tmpdir');
 
 if (!platform || !arch) {
   console.error(
-    'Usage: node scripts/package-electron.js --platform <platform> --arch <arch>',
+    'Usage: node scripts/package-electron.js --platform <platform> --arch <arch> [--no-tmpdir]',
   );
   process.exit(1);
 }
@@ -63,8 +68,9 @@ if (!existsSync(dir)) {
 }
 
 console.log(`Packaging "flashtool" for ${platform}-${arch} (electron v${electronVersion})`);
-console.log(`  source: ${dir}`);
-console.log(`  output: ${out}`);
+console.log(`  source:  ${dir}`);
+console.log(`  output:  ${out}`);
+console.log(`  tmpdir:  ${noTmpdir ? 'disabled' : 'enabled'}`);
 
 // ── Package ───────────────────────────────────────────────────────────────────
 
@@ -78,12 +84,24 @@ const options = {
   overwrite: true,
 };
 
+if (noTmpdir) {
+  options.tmpdir = false;
+}
+
 // Only bundle extra resources if the tools directory actually exists.
 if (existsSync(toolsDir)) {
   options.extraResource = [toolsDir];
 }
 
-const appPaths = await packager(options);
+let appPaths;
+try {
+  appPaths = await packager(options);
+} catch (err) {
+  console.error('ERROR: @electron/packager threw while packaging.');
+  console.error(err && err.stack ? err.stack : err);
+  console.error(`Options were: ${JSON.stringify(options)}`);
+  process.exit(1);
+}
 
 if (!appPaths.length) {
   console.error(

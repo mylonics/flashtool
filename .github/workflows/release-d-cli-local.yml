@@ -1,0 +1,75 @@
+name: Release Test D — Local packager CLI
+
+# Strategy D: bypass `npx` (which may resolve to the deprecated standalone
+# `electron-packager` package) and invoke the locally installed
+# @electron/packager binary directly, with --no-tmpdir and debug logging.
+# Linux-only.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Test D (local CLI, linux-x64)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: sudo apt-get install -y libusb-1.0-0-dev libudev-dev
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download tools
+        run: node scripts/download-tools.js
+
+      - name: Ensure tools directory exists
+        run: mkdir -p resources/tools/linux-x64
+
+      - name: Build Electron app (UnPackaged)
+        run: npx quasar build -m electron
+
+      - name: Package with local @electron/packager binary
+        shell: bash
+        env:
+          DEBUG: '@electron/packager,@electron/packager:*'
+          DEBUG_COLORS: '0'
+        run: |
+          ELECTRON_VER=$(node -p "require('./node_modules/electron/package.json').version")
+          BIN="node_modules/@electron/packager/bin/electron-packager.mjs"
+          echo "Using binary: $BIN (electron v$ELECTRON_VER)"
+          node "$BIN" dist/electron/UnPackaged flashtool \
+            --platform linux \
+            --arch x64 \
+            --out dist/electron/Packaged \
+            --overwrite \
+            --no-tmpdir \
+            --electron-version "$ELECTRON_VER" \
+            --extra-resource resources/tools
+
+      - name: Verify and archive
+        shell: bash
+        run: |
+          pkg="dist/electron/Packaged/flashtool-linux-x64"
+          if [ ! -d "$pkg" ]; then
+            echo "ERROR: no output at $pkg"
+            find dist -maxdepth 4 -type d | sort || true
+            exit 1
+          fi
+          tar -czf "flashtool-linux-x64.tar.gz" -C "dist/electron/Packaged" "flashtool-linux-x64"
+          ls -la flashtool-linux-x64.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: testD-local-cli-linux-x64
+          path: flashtool-linux-x64.tar.gz

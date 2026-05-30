@@ -1,0 +1,60 @@
+name: Release Test B — Packager (no tmpdir)
+
+# Strategy B: run @electron/packager via the programmatic API
+# (scripts/package-electron.js) with --no-tmpdir, so the bundle is built
+# directly under dist/electron/Packaged instead of in the OS temp dir. This
+# avoids a silent cross-device move failure on CI. Linux-only.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Test B (packager --no-tmpdir, linux-x64)
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install system dependencies
+        run: sudo apt-get install -y libusb-1.0-0-dev libudev-dev
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download tools
+        run: node scripts/download-tools.js
+
+      - name: Ensure tools directory exists
+        run: mkdir -p resources/tools/linux-x64
+
+      - name: Build Electron app (UnPackaged)
+        run: npx quasar build -m electron
+
+      - name: Package Electron app
+        run: node scripts/package-electron.js --platform linux --arch x64 --no-tmpdir
+
+      - name: Verify and archive
+        shell: bash
+        run: |
+          pkg="dist/electron/Packaged/flashtool-linux-x64"
+          if [ ! -d "$pkg" ]; then
+            echo "ERROR: no output at $pkg"
+            find dist -maxdepth 4 -type d | sort || true
+            exit 1
+          fi
+          tar -czf "flashtool-linux-x64.tar.gz" -C "dist/electron/Packaged" "flashtool-linux-x64"
+          ls -la flashtool-linux-x64.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: testB-packager-notmpdir-linux-x64
+          path: flashtool-linux-x64.tar.gz
