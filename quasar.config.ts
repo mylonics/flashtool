@@ -38,6 +38,7 @@ export default configure(function (/* ctx */) {
       bundler: 'packager',
       packager: {
         extraResource: ['resources/tools'],
+        name: 'flashtool',
       },
       builder: {
         appId: 'com.mylonics.flashtool',

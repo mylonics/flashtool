@@ -82,12 +82,6 @@ jobs:
       - name: Build Electron app
         run: npx quasar build -m electron
 
-      # quasar build exits before @electron/packager finishes, so run it explicitly.
-      # Use shell: bash on all platforms so a non-zero exit code always fails the step.
-      - name: Package Electron app
-        shell: bash
-        run: npx electron-packager dist/electron/UnPackaged --out dist/electron/Packaged --overwrite --extra-resource resources/tools --name flashtool
-
       # ── Archive the packager output ─────────────────────────────────────────
       # @electron/packager emits a single directory under dist/electron/Packaged/
       # named "<name>-<platform>-<arch>/" (e.g. "flashtool-win32-x64/").
@@ -96,18 +90,22 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          if (-not (Test-Path "dist/electron/Packaged")) { Write-Error "Packaged directory not found"; exit 1 }
-          $pkg = Get-ChildItem "dist/electron/Packaged" -Directory | Select-Object -First 1
-          if (-not $pkg) { Write-Error "No packager output found"; exit 1 }
-          Compress-Archive -Path $pkg.FullName -DestinationPath "flashtool-${{ matrix.platform }}.zip"
+          $pkg = "dist/electron/Packaged/flashtool-${{ matrix.platform }}"
+          if (-not (Test-Path $pkg)) { Write-Error "No packager output found at $pkg"; exit 1 }
+          Compress-Archive -Path $pkg -DestinationPath "flashtool-${{ matrix.platform }}.zip"
           Write-Output "Created flashtool-${{ matrix.platform }}.zip ($('{0:N1}' -f ((Get-Item 'flashtool-${{ matrix.platform }}.zip').Length / 1MB)) MB)"
 
       - name: Create tar archive (macOS / Linux)
         if: runner.os != 'Windows'
         run: |
-          pkg=$(find "dist/electron/Packaged" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | head -1)
-          if [ -z "$pkg" ]; then echo "No packager output found"; exit 1; fi
-          tar -czf "flashtool-${{ matrix.platform }}.tar.gz" -C "dist/electron/Packaged" "$(basename "$pkg")"
+          pkg_dir="dist/electron/Packaged/flashtool-${{ matrix.platform }}"
+          if [ ! -d "$pkg_dir" ]; then
+            echo "No packager output found at $pkg_dir"
+            echo "Contents of dist/electron/Packaged:"
+            ls -la "dist/electron/Packaged/" || true
+            exit 1
+          fi
+          tar -czf "flashtool-${{ matrix.platform }}.tar.gz" -C "dist/electron/Packaged" "flashtool-${{ matrix.platform }}"
           size=$(du -sh "flashtool-${{ matrix.platform }}.tar.gz" | cut -f1)
           echo "Created flashtool-${{ matrix.platform }}.tar.gz ($size)"
 
