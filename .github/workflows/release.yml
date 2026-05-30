@@ -88,23 +88,19 @@ jobs:
           ls -la "resources/tools/${{ matrix.platform }}" || true
 
       # quasar build compiles the app into dist/electron/UnPackaged but does
-      # not reliably complete the @electron/packager step in CI. Run it
-      # explicitly using the locally installed package so no download occurs.
+      # not reliably complete the packaging step in CI. Run @electron/packager
+      # via its programmatic API (scripts/package-electron.js) so output is
+      # written to a deterministic path and the step fails loudly if nothing
+      # is produced.
       - name: Build Electron app
         run: npx quasar build -m electron
 
       - name: Package Electron app
         shell: bash
         run: |
-          ELECTRON_VER=$(node -p "require('./node_modules/electron/package.json').version")
-          echo "Packaging with electron $ELECTRON_VER for ${{ matrix.electron_platform }}-${{ matrix.electron_arch }}"
-          npx electron-packager dist/electron/UnPackaged flashtool \
+          node scripts/package-electron.js \
             --platform "${{ matrix.electron_platform }}" \
-            --arch "${{ matrix.electron_arch }}" \
-            --out dist/electron/Packaged \
-            --overwrite \
-            --extra-resource resources/tools \
-            --electron-version "$ELECTRON_VER"
+            --arch "${{ matrix.electron_arch }}"
           echo "Packaged output:"
           ls -la dist/electron/Packaged/
 
