@@ -87,20 +87,31 @@ jobs:
           echo "Tools directory contents:"
           ls -la "resources/tools/${{ matrix.platform }}" || true
 
-      # quasar build compiles the app into dist/electron/UnPackaged but does
-      # not reliably complete the packaging step in CI. Run @electron/packager
-      # via its programmatic API (scripts/package-electron.js) so output is
-      # written to a deterministic path and the step fails loudly if nothing
-      # is produced.
       - name: Build Electron app
         run: npx quasar build -m electron
 
+      # Run @electron/packager via the CLI (installed as a devDependency) and
+      # verify that output was actually produced — the packager exits 0 even on
+      # failure unless the output directory is checked explicitly.
       - name: Package Electron app
         shell: bash
         run: |
-          node scripts/package-electron.js \
+          ELECTRON_VER=$(node -p "require('./node_modules/electron/package.json').version")
+          echo "Packaging flashtool for ${{ matrix.electron_platform }}-${{ matrix.electron_arch }} (electron v${ELECTRON_VER})"
+          npx electron-packager dist/electron/UnPackaged flashtool \
             --platform "${{ matrix.electron_platform }}" \
-            --arch "${{ matrix.electron_arch }}"
+            --arch "${{ matrix.electron_arch }}" \
+            --out dist/electron/Packaged \
+            --overwrite \
+            --electron-version "$ELECTRON_VER" \
+            --extra-resource resources/tools
+          expected="dist/electron/Packaged/flashtool-${{ matrix.electron_platform }}-${{ matrix.electron_arch }}"
+          if [ ! -d "$expected" ]; then
+            echo "ERROR: packager produced no output at $expected"
+            echo "Contents of dist/electron/Packaged:"
+            ls -la dist/electron/Packaged/ || echo "(directory missing)"
+            exit 1
+          fi
           echo "Packaged output:"
           ls -la dist/electron/Packaged/
 
